@@ -34,5 +34,7 @@ jobs:
       - name: Run unit tests
         run: ./run_tests
 
-      - name: Run the program
-        run: ./huffzip
+      - name: Smoke test the CLI
+        run: |
+          ./huffzip -h
+          if ./huffzip -c no_such_file.txt; then echo "should have failed"; exit 1; fi
