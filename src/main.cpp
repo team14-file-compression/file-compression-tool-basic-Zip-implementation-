@@ -6,8 +6,13 @@
 //   huffzip -h                                    show help
 #include "huffzip.h"
 
+#include <exception>
+#include <filesystem>
 #include <iostream>
+#include <new>
 #include <string>
+
+namespace fs = std::filesystem;
 
 static void print_usage() {
     std::cout <<
@@ -16,6 +21,13 @@ static void print_usage() {
         "  huffzip -c <input file> [-o <output file>]   Compress a file\n"
         "  huffzip -d <input.huff> [-o <output file>]   Decompress a file\n"
         "  huffzip -h                                   Show this help\n";
+}
+
+// True if both paths name the same file (also catches "./a.txt" vs "a.txt").
+static bool same_file(const std::string& a, const std::string& b) {
+    if (a == b) return true;
+    std::error_code ec;
+    return fs::exists(b, ec) && fs::equivalent(a, b, ec);
 }
 
 static bool ends_with(const std::string& s, const std::string& suffix) {
@@ -58,14 +70,30 @@ int main(int argc, char* argv[]) {
         return EXIT_FILE_ERROR;
     }
 
-    if (mode == "-c") {
-        if (output.empty()) output = input + ".huff";
-        return compress_file(input, output);
+    if (output.empty()) {
+        if (mode == "-c") {
+            output = input + ".huff";
+        } else {
+            output = ends_with(input, ".huff") ? input.substr(0, input.size() - 5) + ".out"
+                                               : input + ".out";
+        }
     }
 
-    if (output.empty()) {
-        output = ends_with(input, ".huff") ? input.substr(0, input.size() - 5) + ".out"
-                                           : input + ".out";
+    // SRS 6.2: never destroy user data. Writing the output over the input
+    // would delete the original file.
+    if (same_file(input, output)) {
+        std::cerr << "Error: output file must be different from the input file\n";
+        return EXIT_USAGE;
     }
-    return decompress_file(input, output);
+
+    // SRS 6.2: terminate gracefully with a helpful message instead of crashing.
+    try {
+        return mode == "-c" ? compress_file(input, output)
+                            : decompress_file(input, output);
+    } catch (const std::bad_alloc&) {
+        std::cerr << "Error: not enough memory to process '" << input << "'\n";
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
+    return EXIT_FAILURE_OTHER;
 }
