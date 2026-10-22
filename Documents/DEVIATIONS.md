@@ -195,7 +195,7 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - It catches unexpected errors and exits with a message (exit code 3).
   - The CI smoke test checks both cases on all 3 OSes.
 - **Still open:** an existing output file is overwritten without asking, and a write that fails half-way can leave a partial output file. To be handled with REQ-7 (Inchara): write to a temporary file, then rename it when complete.
-- **Status:** 🔧 Fix in progress (PR #__).
+- **Status:** 🔧 Fix in progress (PR #23).
 
 ---
 
