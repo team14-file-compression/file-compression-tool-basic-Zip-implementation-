@@ -50,7 +50,20 @@ int compress_file(const std::string& input_path, const std::string& output_path)
         return EXIT_FILE_ERROR;
     }
 
+    // Calculate compressed size (8 bytes original size + 2048 bytes freq table + 8 bytes bit count + bitstream payload)
+    uint64_t compressed_size = 8 + (256 * sizeof(uint64_t)) + 8 + bitstream.bytes.size();
+    
+    // Calculate compression ratio
+    double ratio = 100.0;
+    if (original_size > 0) {
+        ratio = (static_cast<double>(compressed_size) / original_size) * 100.0;
+    }
+
     std::cout << "Successfully compressed " << input_path << " to " << output_path << "\n";
+    std::cout << "Original size:   " << original_size << " bytes\n";
+    std::cout << "Compressed size: " << compressed_size << " bytes\n";
+    std::cout << "Ratio:           " << ratio << "%\n";
+
     return EXIT_OK;
 }
 
