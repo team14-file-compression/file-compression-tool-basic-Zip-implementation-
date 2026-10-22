@@ -18,6 +18,10 @@ struct Node {
     std::uint8_t byte;
     std::uint64_t frequency;
 
+    // Smallest byte value in this node's subtree.
+    // Used to break ties deterministically.
+    std::uint8_t min_byte;
+
     std::shared_ptr<Node> left;
     std::shared_ptr<Node> right;
 
@@ -41,7 +45,7 @@ struct EncodedBitstream {
     std::uint64_t bit_count;
 };
 
-// Build the Huffman tree from byte frequencies
+// Build a deterministic Huffman tree from byte frequencies
 std::shared_ptr<Node> build_tree(
     const std::array<std::uint64_t, BYTE_VALUES>& frequencies);
 
