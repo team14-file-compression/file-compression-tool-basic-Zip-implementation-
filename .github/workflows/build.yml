@@ -38,3 +38,7 @@ jobs:
         run: |
           ./huffzip -h
           if ./huffzip -c no_such_file.txt; then echo "should have failed"; exit 1; fi
+          echo "hello hello hello" > smoke.txt
+          ./huffzip -c smoke.txt -o smoke.huff
+          test -s smoke.huff
+          if ./huffzip -c smoke.txt -o smoke.txt; then echo "should refuse to overwrite input"; exit 1; fi

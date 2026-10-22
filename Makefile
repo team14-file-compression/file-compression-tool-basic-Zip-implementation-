@@ -10,10 +10,10 @@ LIB_SRC = $(filter-out src/main.cpp, $(wildcard src/*.cpp))
 
 all: huffzip
 
-huffzip: $(wildcard src/*.cpp) $(wildcard include/*.h)
+huffzip: $(wildcard src/*.cpp) $(wildcard include/*)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(wildcard src/*.cpp) -o huffzip
 
-run_tests: $(LIB_SRC) $(wildcard tests/*.cpp) $(wildcard include/*.h)
+run_tests: $(LIB_SRC) $(wildcard tests/*.cpp) $(wildcard include/*)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(LIB_SRC) $(wildcard tests/*.cpp) -o run_tests
 
 test: run_tests
