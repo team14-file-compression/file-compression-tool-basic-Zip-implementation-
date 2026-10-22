@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 
 namespace {
@@ -108,6 +109,21 @@ void test_encoded_size_consistency() {
     assert(encoded.bytes.size() == (expected_bits + 7) / 8);
 }
 
+void test_missing_code_throws() {
+    huffman::CodeTable codes{};
+    const std::vector<std::uint8_t> input = {'A'};
+
+    bool threw = false;
+
+    try {
+        (void)huffman::encode(input, codes);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+
+    assert(threw);
+}
+
 } // namespace
 
 // Called by the shared project test runner.
@@ -117,6 +133,7 @@ void run_huffman_tests() {
     test_multiple_symbols_and_encoding();
     test_binary_symbols();
     test_encoded_size_consistency();
+    test_missing_code_throws();
 
     std::cout << "[PASS] Huffman tests\n";
 }
