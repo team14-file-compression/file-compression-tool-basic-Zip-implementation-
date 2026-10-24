@@ -2,7 +2,7 @@
 
 **Project:** File Compression Tool (Basic ZIP Implementation): Team 14
 **Owner:** Pranavi Sistla (PES1UG24CS338)
-**Last updated:** 22-Oct-2026 (during Sprint 1)
+**Last updated:** 24-Oct-2026 (end-of-Sprint-1 review)
 
 The Part-2 deliverables say: *"Deviations from the submitted document should be documented and explained during the final demo."* This file records every place where the implementation or process differs from what we submitted in Part 1:
 
@@ -21,19 +21,21 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
 | ID | Area | Short description | Status |
 |---|---|---|---|
 | D-01 | Team | REQ-1/REQ-2 and REQ-4/REQ-7 ownership swapped between Pranavi and Inchara | ✅ Accepted (STP update pending) |
-| D-02 | Process | Board sprint names and planned timing differ from the course sprint names; STP schedule outdated | ✅ Accepted |
+| D-02 | Process | Board sprint names differ from the course's; decompression delivered one sprint early; STP schedule outdated | ✅ Accepted |
 | D-03 | Repository | Repo moved to the `team14-file-compression` organisation; documents moved to `Documents/` | ✅ Accepted |
 | D-04 | Technology | Implemented in C++17 only (SRS cites C++20; SAD says C/C++) | ✅ Accepted |
 | D-05 | File format | `.huff` header has an extra 8-byte *bit count* field and a fixed-size frequency table | ✅ Accepted (SRS Appendix B update pending) |
 | D-06 | Architecture | File writing is inside `codec.cpp`, not a separate File I/O module; interfaces and exit codes added | ✅ Accepted |
 | D-07 | Behaviour | Very small and incompressible files get larger (2064-byte header) | ✅ Accepted |
 | D-08 | Feature | Compression metrics were missing from the backlog; added late in Sprint 1 (PR #17) | ✅ Accepted |
-| D-09 | Portability | Huffman tie-breaking differs between compilers, breaking cross-OS decompression | 🔧 Fix in progress |
-| D-10 | Memory NFR | Whole file plus compressed output held in memory, which may exceed the SRS 6.1 limit | 🔍 To verify |
-| D-11 | Performance NFR | 100 MB in under 10 s not yet measured | 🔍 To verify |
+| D-09 | Portability | Huffman tie-breaking differed between compilers, breaking cross-OS decompression | ✅ Fixed (PR #24) |
+| D-10 | Memory NFR | Whole file plus compressed output held in memory: about 1.6× the file size, above the SRS 6.1 limit | 🔍 To verify |
+| D-11 | Performance NFR | 100 MB compresses in about 1.4 s and decompresses in about 2.4 s (target under 10 s) | 🔍 To verify on team laptop |
 | D-12 | Testing | Lightweight test runner plus GitHub Actions CI on 3 OSes instead of the tools named in the STP | ✅ Accepted |
 | D-13 | Process | Three commits went directly to `main` before branch protection blocked bypassing | ✅ Accepted (fixed) |
-| D-14 | Safety | Output could overwrite the input file; unexpected errors could crash instead of exiting cleanly | 🔧 Fix in progress |
+| D-14 | Safety | Output could overwrite the input file; unexpected errors could crash instead of exiting cleanly | ✅ Fixed (PR #23) |
+| D-15 | Team | REQ-7 (writing the restored file) was implemented inside Rachit's decompression PR #25 | ✅ Accepted |
+| D-16 | Safety | Some corrupted payloads decode to wrong data without an error (no checksum in the format) | ⏳ Open (team decision) |
 
 ---
 
@@ -62,7 +64,7 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - Iterations are named **Sprint 1** (dry run), **Sprint 2** (= course Sprint-1) and **Sprint 3** (= course Sprint-2).
   - Board Sprint 2 holds compression (#1–#4).
   - Board Sprint 3 holds decompression (#5–#7) and all NFRs (#8–#11).
-- **Effect:** the Sprint-1 video shows a working compressor. The full compress → decompress round trip is shown in the Sprint-2 video.
+- **What actually happened:** decompression (#5, #6, #7) was planned for board Sprint 3, but it was finished early and merged on 22-Oct (PR #25). The Sprint-1 video (`sprint1-demo.mp4`, PR #26, 60 s) therefore already shows the full round trip: compress, decompress, then `fc /b` reporting no differences, on Windows.
 - **STP v1.0 Section 7** listed test execution on 06–07 Oct, before any code existed. Actual testing happens during the sprints. Corrected in STP v1.1.
 
 ### D-03: Repository location and document folder
@@ -144,7 +146,9 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - An internal node uses the smallest byte value in its subtree.
   - Verified to give identical codes on both libraries, and all existing tests pass.
   - The rule is written into `FORMAT.md` Section 5.
-- **Owner:** Pavan (REQ-3). Fix sent to him on 21-Oct-2026. **Status:** 🔧 Fix in progress (PR #__).
+- **Owner:** Pavan (REQ-3). **Fixed in PR #24** (22-Oct-2026), which adds a `min_byte` field to each node and orders ties by it.
+- **Verified (24-Oct):** files compressed with the GCC/libstdc++ build decompress byte-identically with the Clang/libc++ build, and the other way round. That is 21 of 21 round trips over text, binary, empty, single-symbol and all-256-byte files. The `FORMAT.md` worked example still matches byte for byte.
+- **Status:** ✅ Fixed. A real cross-OS check (Mac ↔ Windows laptop) is part of #9 / TC-NF-03.
 - **Retest:** TC-NF-03. Compress on one OS, decompress on another, and compare with `cmp` or `fc /b`.
 
 ### D-10: Memory use exceeds the SRS limit (risk)
@@ -153,19 +157,27 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - `read_file_bytes()` loads the whole input into memory.
   - `encode()` builds the whole compressed output in memory before writing.
   - Peak memory is therefore about **input size + compressed size + tree**.
-- **Indicative measurement (21-Oct, team test run):** compressing a **50 MB** text file used **86 MB** peak memory, about 1.7× the file size. This is above the SRS limit.
+- **Indicative measurements:**
+  - 21-Oct: a 50 MB text file used 86 MB peak memory to compress.
+  - 24-Oct: a **103 MB** text file used **165 MB** to compress and **154 MB** to decompress, about **1.5–1.6×** the file size.
+  - Both are above the SRS limit.
 - **Action:** measure on a 100 MB file in #10 (Inchara, TC-NF-02).
   - To meet the limit: write the encoded output to the file in chunks instead of keeping it all in memory.
   - Otherwise: record the measured figure here as an accepted deviation.
 - **Status:** 🔍 To verify (Sprint 2).
 
-### D-11: 100 MB performance (to be measured officially)
+### D-11: 100 MB performance
 - **Submitted:** SRS 6.1: compress and decompress 100 MB in under 10 s.
-- **Indicative measurement (21-Oct):**
-  - Compressing a **50 MB** text file took **0.92 s** on a 2-core Intel Xeon 2.8 GHz Linux machine, and the output was 27 MB (46% smaller).
-  - So 100 MB should take about 2 s, well within the target.
-- **Action:** official measurement on a team laptop in #8 (Pavan, TC-NF-01), for both compression and decompression. Record the CPU and RAM used.
-- **Status:** 🔍 To verify (Sprint 2). Compression looks fine; decompression is not built yet.
+- **Indicative measurement (24-Oct-2026), on a 103 MB text file:**
+
+| Operation | Time | Result |
+|---|---|---|
+| Compress | **1.39 s** | 56.1 MB output (ratio 54.5%) |
+| Decompress | **2.40 s** | byte-identical to the original |
+
+  Measured on a 2-core Intel Xeon 2.8 GHz Linux machine.
+- **Action:** Pavan repeats this on a team laptop in #8 (TC-NF-01) and records the CPU and RAM. Expected to pass easily.
+- **Status:** 🔍 To verify on a team laptop (Sprint 2).
 
 ### D-12: Test tools and CI
 - **Submitted:** STP Sections 5 and 6 name generic "byte comparison, time and memory measurement tools". SAD 5.3 lists no CI.
@@ -195,7 +207,38 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - It catches unexpected errors and exits with a message (exit code 3).
   - The CI smoke test checks both cases on all 3 OSes.
 - **Still open:** an existing output file is overwritten without asking, and a write that fails half-way can leave a partial output file. To be handled with REQ-7 (Inchara): write to a temporary file, then rename it when complete.
-- **Status:** 🔧 Fix in progress (PR #23).
+- **Status:** ✅ Fixed in PR #23 (merged 22-Oct-2026). Re-verified 24-Oct: decompressing onto the input file is also refused.
+
+### D-15: REQ-7 implemented inside the decompression PR
+- **Submitted:**
+  - SRS Section 7: REQ-7 (write the decompressed data to a new file) is Inchara's.
+  - Issue #7 is assigned to Inchara.
+- **Actual:**
+  - Rachit's PR #25 (REQ-5, REQ-6) also writes the restored file in `decompress_file()`, so REQ-7's code arrived together with decoding.
+  - It checks that the decoded size equals the original size.
+  - It writes in binary mode.
+  - It only opens the output after decoding succeeds, so a corrupted archive never damages an existing file (verified 24-Oct).
+- **Reason:** decoding and writing live in the same function, and splitting them across two PRs would have caused merge conflicts.
+- **Action:**
+  - Inchara reviews the REQ-7 part and adds the remaining safety item from D-14 (write to a temporary file, then rename), under issue #7.
+  - Update issue #7 to reflect this.
+- **Status:** ✅ Accepted.
+
+### D-16: Not every corruption is detected
+- **Submitted:**
+  - SRS 6.2: "If … a file is corrupted, the program must terminate gracefully with a helpful error message."
+  - STP TC-ERR-02: "Corruption is detected/handled safely."
+- **Actual (tested 24-Oct-2026):**
+  - Detected and rejected with a clear error, with no output written:
+    - truncated archives
+    - wrong frequency table
+    - a file that is not an archive
+    - a header shorter than 2064 bytes
+  - **But** of 200 random single-bit flips inside the payload, **140 decoded without any error into wrong data**. A flipped bit often turns one valid Huffman code into another, and the format has no checksum to notice.
+- **Options for the team:**
+  1. **Add a CRC32 checksum** of the original data to the header (4 more bytes). The decoder compares it after decoding. That changes `FORMAT.md`, `compress_file()` (Inchara) and `decompress_file()` (Rachit), plus one test. It is about 40 lines in total.
+  2. **Accept and explain:** "structural corruption is detected; silent payload corruption is a known limitation of plain Huffman coding without a checksum." In that case, test TC-ERR-02 with truncation or header damage.
+- **Status:** ⏳ Open, needs a team decision by 26-Oct.
 
 ---
 
