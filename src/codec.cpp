@@ -1,7 +1,7 @@
 // codec.cpp - compression and decompression (REQ-3 to REQ-7)
 #include "huffzip.h"
 #include "huffman.hpp"
-
+#include <filesystem>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -271,6 +271,21 @@ int decompress_file(const std::string& input_path,
     }
 
     out.close();
+
+    if (!out) {
+        std::cerr << "Error: Failed to write decompressed file.\n";
+        return EXIT_FILE_ERROR;
+    }
+
+    // REQ-7: Verify the output file was completely and correctly written to disk for a lossless match
+    std::error_code ec;
+    auto written_size = std::filesystem::file_size(output_path, ec);
+    if (ec || written_size != original_size) {
+        std::cerr << "Error: Lossless matching failed. Written file size (" 
+                  << written_size << " bytes) does not match original size (" 
+                  << original_size << " bytes).\n";
+        return EXIT_FAILURE_OTHER;
+    }
 
     if (!out) {
         std::cerr << "Error: Failed to write decompressed file.\n";
