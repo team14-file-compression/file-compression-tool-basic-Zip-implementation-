@@ -11,3 +11,9 @@ run_tests.exe
 *.huff
 *.out
 test_data/large/
+
+# Local benchmark data and restored outputs
+sprint1_restored.txt
+sprint1_test.txt
+sprint2_*.bin
+src/codec.cpp.backup
