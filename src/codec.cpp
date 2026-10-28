@@ -7,32 +7,29 @@
 #include <vector>
 #include <limits>
 #include <memory>
+#include <cstdint>
+#include <exception>
+#include <array>
 
 int compress_file(const std::string& input_path, const std::string& output_path) {
     std::string error;
     std::vector<uint8_t> input_bytes;
 
-    // 1. REQ-1 (Pranavi): Read input file
     if (!read_file_bytes(input_path, input_bytes, error)) {
         std::cerr << "Error reading input: " << error << "\n";
         return EXIT_FILE_ERROR;
     }
 
-    // 2. REQ-2 (Pranavi): Calculate frequencies
     FreqTable freqs = count_frequencies(input_bytes);
-
-    // 3. REQ-3 (Pavan): Build tree and generate codes
     auto root = huffman::build_tree(freqs);
     auto codes = huffman::generate_codes(root);
 
-    // [NFR #10] Memory Optimization: Pre-calculate the exact bit count to avoid allocating
-    // an enormous EncodedBitstream vector. Peak memory stays strictly at (Input Size + Tree).
+    // [NFR #10] Memory Optimization
     uint64_t bit_count = 0;
     for (size_t i = 0; i < 256; ++i) {
         bit_count += freqs[i] * codes[i].length();
     }
 
-    // [REQ-7 & D-14] Safety: Write to a temporary file first, so we never corrupt existing data
     std::string temp_path = output_path + ".tmp";
     std::ofstream out(temp_path, std::ios::binary);
     if (!out) {
@@ -40,13 +37,12 @@ int compress_file(const std::string& input_path, const std::string& output_path)
         return EXIT_FILE_ERROR;
     }
 
-    // 4. REQ-4 (Inchara): Write Header
     uint64_t original_size = input_bytes.size();
     out.write(reinterpret_cast<const char*>(&original_size), sizeof(original_size));
     out.write(reinterpret_cast<const char*>(freqs.data()), sizeof(uint64_t) * 256);
     out.write(reinterpret_cast<const char*>(&bit_count), sizeof(bit_count));
 
-    // [NFR #10] Stream encoded bits directly to disk instead of holding them in memory
+    // Stream bits directly to disk
     uint8_t buffer = 0;
     unsigned bit_pos = 0;
     for (uint8_t byte : input_bytes) {
@@ -74,7 +70,6 @@ int compress_file(const std::string& input_path, const std::string& output_path)
         return EXIT_FILE_ERROR;
     }
 
-    // [REQ-7 & D-14] Success: safely rename temp file to final output path
     std::error_code ec;
     std::filesystem::rename(temp_path, output_path, ec);
     if (ec) {
@@ -83,7 +78,6 @@ int compress_file(const std::string& input_path, const std::string& output_path)
         return EXIT_FILE_ERROR;
     }
 
-    // Calculate and display metrics
     uint64_t compressed_size = 8 + (256 * sizeof(uint64_t)) + 8 + (bit_count / 8 + (bit_count % 8 != 0 ? 1 : 0));
     double ratio = 100.0;
     if (original_size > 0) {
@@ -105,7 +99,6 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
         return EXIT_FILE_ERROR;
     }
 
-    // REQ-5: Read metadata
     std::uint64_t original_size = 0;
     in.read(reinterpret_cast<char*>(&original_size), sizeof(original_size));
 
@@ -129,7 +122,6 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
         return EXIT_FAILURE_OTHER;
     }
 
-    // REQ-6: Rebuild the tree
     std::shared_ptr<huffman::Node> root;
     try {
         root = huffman::build_tree(freqs);
@@ -142,7 +134,6 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
         return EXIT_FAILURE_OTHER;
     }
 
-    // [REQ-7 & D-14] Safety: Write to a temporary output file
     std::string temp_path = output_path + ".tmp";
     std::ofstream out(temp_path, std::ios::binary);
     if (!out) {
@@ -151,7 +142,6 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
     }
 
     // [NFR #10] Memory Optimization: Read bits stream-by-stream from disk and output directly.
-    // Avoids massive vector allocations for payload and decoded bytes.
     if (original_size > 0) {
         if (root->is_leaf) {
             if (root->frequency != original_size || bit_count != original_size) {
