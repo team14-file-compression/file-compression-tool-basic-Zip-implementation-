@@ -132,6 +132,10 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
     // Validate metadata
     std::uint64_t total_frequency = 0;
     for (std::uint64_t frequency : freqs) {
+        if (frequency > std::numeric_limits<std::uint64_t>::max() - total_frequency) {
+            std::cerr << "Error: Frequency total overflow.\n";
+            return EXIT_FAILURE_OTHER;
+        }
         total_frequency += frequency;
     }
     if (total_frequency != original_size) {
