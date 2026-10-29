@@ -181,6 +181,18 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
                 std::filesystem::remove(temp_path);
                 return EXIT_FAILURE_OTHER;
             }
+            // The payload must contain exactly ceil(bit_count / 8) bytes,
+            // all bits zero (the single symbol is encoded as '0').
+            const std::uint64_t payload_bytes = bit_count / 8 + (bit_count % 8 != 0 ? 1 : 0);
+            for (std::uint64_t b = 0; b < payload_bytes; ++b) {
+                char pc;
+                if (!in.get(pc) || pc != 0) {
+                    std::cerr << "Error: Invalid single-symbol bitstream.\n";
+                    out.close();
+                    std::filesystem::remove(temp_path);
+                    return EXIT_FAILURE_OTHER;
+                }
+            }
             for (std::uint64_t i = 0; i < bit_count; ++i) {
                 out.put(static_cast<char>(root->byte));
             }
@@ -284,6 +296,14 @@ int decompress_file(const std::string& input_path, const std::string& output_pat
                 return EXIT_FAILURE_OTHER;
             }
         }
+    }
+
+    // Reject unexpected trailing data after the bitstream (corrupted archive).
+    if (in.peek() != std::char_traits<char>::eof()) {
+        std::cerr << "Error: Unexpected trailing data in archive.\n";
+        out.close();
+        std::filesystem::remove(temp_path);
+        return EXIT_FAILURE_OTHER;
     }
 
     out.close();
