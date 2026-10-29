@@ -118,6 +118,27 @@ void run_codec_tests() {
 
     std::cout << "[PASS] Codec rejects corrupted metadata\n";
 
+    // TC-ERR-02: trailing garbage after the bitstream must be rejected.
+    if (compress_file(source, archive) != EXIT_OK)
+        fail("Could not create archive for trailing-data test");
+    Bytes with_extra = read_bytes(archive);
+    with_extra.push_back('X');
+    write_bytes(corrupt, with_extra);
+    if (decompress_file(corrupt, output) == EXIT_OK)
+        fail("Archive with trailing data was accepted");
+    std::cout << "[PASS] Codec rejects trailing data\n";
+
+    // TC-ERR-02: single-symbol archive with its payload cut off must be rejected.
+    write_bytes(source, Bytes(10, 'A'));
+    if (compress_file(source, archive) != EXIT_OK)
+        fail("Could not create single-symbol archive");
+    Bytes single = read_bytes(archive);
+    single.resize(2064);  // header only, payload removed
+    write_bytes(corrupt, single);
+    if (decompress_file(corrupt, output) == EXIT_OK)
+        fail("Single-symbol archive without payload was accepted");
+    std::cout << "[PASS] Codec rejects truncated single-symbol archive\n";
+
     remove_file(source);
     remove_file(archive);
     remove_file(corrupt);
