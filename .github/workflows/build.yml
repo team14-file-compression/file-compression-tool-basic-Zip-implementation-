@@ -42,3 +42,6 @@ jobs:
           ./huffzip -c smoke.txt -o smoke.huff
           test -s smoke.huff
           if ./huffzip -c smoke.txt -o smoke.txt; then echo "should refuse to overwrite input"; exit 1; fi
+
+      - name: Lossless round-trip and corruption check (issue #11)
+        run: bash tests/lossless_check.sh
