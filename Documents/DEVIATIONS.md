@@ -2,7 +2,7 @@
 
 **Project:** File Compression Tool (Basic ZIP Implementation): Team 14
 **Owner:** Pranavi Sistla (PES1UG24CS338)
-**Last updated:** 24-Oct-2026 (end-of-Sprint-1 review)
+**Last updated:** 30-Oct-2026 (final, development frozen at `v1.0`)
 
 The Part-2 deliverables say: *"Deviations from the submitted document should be documented and explained during the final demo."* This file records every place where the implementation or process differs from what we submitted in Part 1:
 
@@ -20,8 +20,8 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
 
 | ID | Area | Short description | Status |
 |---|---|---|---|
-| D-01 | Team | REQ-1/REQ-2 and REQ-4/REQ-7 ownership swapped between Pranavi and Inchara | ✅ Accepted (STP update pending) |
-| D-02 | Process | Board sprint names differ from the course's; decompression delivered one sprint early; STP schedule outdated | ✅ Accepted |
+| D-01 | Team | REQ-1/REQ-2 and REQ-4/REQ-7 ownership swapped between Pranavi and Inchara | ✅ Accepted (STP v1.1) |
+| D-02 | Process | Board sprint names differ from the course's; decompression delivered one sprint early; STP schedule corrected in v1.1 | ✅ Accepted |
 | D-03 | Repository | Repo moved to the `team14-file-compression` organisation; documents moved to `Documents/` | ✅ Accepted |
 | D-04 | Technology | Implemented in C++17 only (SRS cites C++20; SAD says C/C++) | ✅ Accepted |
 | D-05 | File format | `.huff` header has an extra 8-byte *bit count* field and a fixed-size frequency table | ✅ Accepted (SRS Appendix B update pending) |
@@ -29,13 +29,16 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
 | D-07 | Behaviour | Very small and incompressible files get larger (2064-byte header) | ✅ Accepted |
 | D-08 | Feature | Compression metrics were missing from the backlog; added late in Sprint 1 (PR #17) | ✅ Accepted |
 | D-09 | Portability | Huffman tie-breaking differed between compilers, breaking cross-OS decompression | ✅ Fixed (PR #24) |
-| D-10 | Memory NFR | Whole file plus compressed output held in memory: about 1.6× the file size, above the SRS 6.1 limit | 🔍 To verify |
-| D-11 | Performance NFR | 100 MB compresses in about 1.4 s and decompresses in about 2.4 s (target under 10 s) | 🔍 To verify on team laptop |
+| D-10 | Memory NFR | Memory was about 1.6× the file size; fixed by streaming (PR #31), now within the SRS 6.1 limit | ✅ Fixed (PR #31) |
+| D-11 | Performance NFR | 100 MiB: compress 4.35 s, decompress 0.57 s on a team laptop (target under 10 s) | ✅ Passed (TC-NF-01) |
 | D-12 | Testing | Lightweight test runner plus GitHub Actions CI on 3 OSes instead of the tools named in the STP | ✅ Accepted |
 | D-13 | Process | Three commits went directly to `main` before branch protection blocked bypassing | ✅ Accepted (fixed) |
-| D-14 | Safety | Output could overwrite the input file; unexpected errors could crash instead of exiting cleanly | ✅ Fixed (PR #23) |
+| D-14 | Safety | Output could overwrite the input file; errors could crash; failed writes could leave partial files | ✅ Fixed (PR #23, PR #31) |
 | D-15 | Team | REQ-7 (writing the restored file) was implemented inside Rachit's decompression PR #25 | ✅ Accepted |
-| D-16 | Safety | Some corrupted payloads decode to wrong data without an error (no checksum in the format) | ⏳ Open (team decision) |
+| D-16 | Safety | Some corrupted payloads decode to wrong data without an error (no checksum in the format) | ✅ Accepted (known limitation) |
+| D-17 | Safety | The streaming rewrite (PR #31) stopped rejecting trailing data and empty single-symbol payloads | ✅ Fixed (PR #33) |
+| D-18 | Testing | Line endings: Git on Windows stores text files with CRLF, so "the same" README differs by platform | ✅ Accepted (explained) |
+| D-19 | Team | #11 (lossless correctness check) was completed by Pranavi on freeze day instead of Rachit | ✅ Accepted |
 
 ---
 
@@ -53,7 +56,7 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
 - **Where updated:**
   - GitHub issues #1, #2, #4, #7, #9, #10.
   - SRS Section 7 (ownership matrix).
-- **Still to do:** STP Section 9 (Roles) still shows the old split and will be corrected in STP v1.1.
+- **STP:** Section 9 (Roles) corrected in **STP v1.1** (28-Oct-2026).
 
 ### D-02: Sprint naming and schedule
 - **Course plan (Part-2 deliverables):**
@@ -65,7 +68,7 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - Board Sprint 2 holds compression (#1–#4).
   - Board Sprint 3 holds decompression (#5–#7) and all NFRs (#8–#11).
 - **What actually happened:** decompression (#5, #6, #7) was planned for board Sprint 3, but it was finished early and merged on 22-Oct (PR #25). The Sprint-1 video (`sprint1-demo.mp4`, PR #26, 60 s) therefore already shows the full round trip: compress, decompress, then `fc /b` reporting no differences, on Windows.
-- **STP v1.0 Section 7** listed test execution on 06–07 Oct, before any code existed. Actual testing happens during the sprints. Corrected in STP v1.1.
+- **STP v1.0 Section 7** listed test execution on 06–07 Oct, before any code existed. Actual testing happens during the sprints. Corrected in **STP v1.1** (28-Oct-2026), which also updates the SRS references from 5.x to 6.x.
 
 ### D-03: Repository location and document folder
 - **Repository moved:**
@@ -148,36 +151,34 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - The rule is written into `FORMAT.md` Section 5.
 - **Owner:** Pavan (REQ-3). **Fixed in PR #24** (22-Oct-2026), which adds a `min_byte` field to each node and orders ties by it.
 - **Verified (24-Oct):** files compressed with the GCC/libstdc++ build decompress byte-identically with the Clang/libc++ build, and the other way round. That is 21 of 21 round trips over text, binary, empty, single-symbol and all-256-byte files. The `FORMAT.md` worked example still matches byte for byte.
-- **Status:** ✅ Fixed. A real cross-OS check (Mac ↔ Windows laptop) is part of #9 / TC-NF-03.
+- **Status:** ✅ Fixed. Confirmed on real machines on 29-Oct: Mac (Apple clang 21, arm64) ↔ Windows (g++ 16.2.0). Both directions are byte-identical (`Documents/PORTABILITY.md`, TC-NF-03 PASS).
 - **Retest:** TC-NF-03. Compress on one OS, decompress on another, and compare with `cmp` or `fc /b`.
 
-### D-10: Memory use exceeds the SRS limit (risk)
+### D-10: Memory use (SRS 6.1)
 - **Submitted:** SRS 6.1: "Memory consumption should not exceed the size of the file being processed plus tree overhead."
-- **Actual design:**
-  - `read_file_bytes()` loads the whole input into memory.
-  - `encode()` builds the whole compressed output in memory before writing.
-  - Peak memory is therefore about **input size + compressed size + tree**.
-- **Indicative measurements:**
-  - 21-Oct: a 50 MB text file used 86 MB peak memory to compress.
-  - 24-Oct: a **103 MB** text file used **165 MB** to compress and **154 MB** to decompress, about **1.5–1.6×** the file size.
-  - Both are above the SRS limit.
-- **Action:** measure on a 100 MB file in #10 (Inchara, TC-NF-02).
-  - To meet the limit: write the encoded output to the file in chunks instead of keeping it all in memory.
-  - Otherwise: record the measured figure here as an accepted deviation.
-- **Status:** 🔍 To verify (Sprint 2).
+- **Before:**
+  - The whole input and the whole compressed output were held in memory.
+  - A 103 MB file used 165 MB to compress and 154 MB to decompress (about 1.6×).
+- **Fix (Inchara, #10, PR #31, 28-Oct-2026):**
+  - The encoded bits are written straight to the output file instead of being collected in memory.
+  - Decompression reads the archive and writes the restored file as a stream.
+- **Measured after the fix (28-Oct, 103 MB text file):**
 
-### D-11: 100 MB performance
-- **Submitted:** SRS 6.1: compress and decompress 100 MB in under 10 s.
-- **Indicative measurement (24-Oct-2026), on a 103 MB text file:**
-
-| Operation | Time | Result |
+| Operation | Peak memory | Compared with file size |
 |---|---|---|
-| Compress | **1.39 s** | 56.1 MB output (ratio 54.5%) |
-| Decompress | **2.40 s** | byte-identical to the original |
+| Compress | **101 MB** | about 1.0× (the input is still loaded once to count frequencies) |
+| Decompress | **10 MB** | about 0.1× |
 
-  Measured on a 2-core Intel Xeon 2.8 GHz Linux machine.
-- **Action:** Pavan repeats this on a team laptop in #8 (TC-NF-01) and records the CPU and RAM. Expected to pass easily.
-- **Status:** 🔍 To verify on a team laptop (Sprint 2).
+- **Status:** ✅ Fixed. Both are within "file size + tree overhead".
+
+### D-11: 100 MB performance (SRS 6.1)
+- **Submitted:** SRS 6.1: compress and decompress 100 MB in under 10 s.
+- **Official result (Pavan, #8, `Documents/TC-NF-01_Performance_Results.md`):**
+  - 100 MiB file, Windows, Intel Core i5-12450H, 15.7 GiB RAM, g++ 16.2.0.
+  - Averages over 3 runs: **compress 4.35 s**, **decompress 0.57 s**.
+  - All three outputs were byte-identical (`fc /b`). **TC-NF-01: PASS.**
+- **Note:** that benchmark used the build from 26-Oct, before the streaming change in PR #31. A recheck on 28-Oct (Linux test machine, 103 MB) gave compress 1.8 s and decompress 4.1 s, still well under 10 s.
+- **Status:** ✅ Passed.
 
 ### D-12: Test tools and CI
 - **Submitted:** STP Sections 5 and 6 name generic "byte comparison, time and memory measurement tools". SAD 5.3 lists no CI.
@@ -206,8 +207,8 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
   - `src/main.cpp` now refuses when the output file is the same as the input file (exit code 1).
   - It catches unexpected errors and exits with a message (exit code 3).
   - The CI smoke test checks both cases on all 3 OSes.
-- **Still open:** an existing output file is overwritten without asking, and a write that fails half-way can leave a partial output file. To be handled with REQ-7 (Inchara): write to a temporary file, then rename it when complete.
-- **Status:** ✅ Fixed in PR #23 (merged 22-Oct-2026). Re-verified 24-Oct: decompressing onto the input file is also refused.
+- **Completed in PR #31 (Inchara, 28-Oct):** compression and decompression now write to `<output>.tmp` and rename it only when everything succeeded. A failed or corrupted run never leaves a partial file and never replaces an existing one (verified 28-Oct). An existing output file is still replaced without asking when the run succeeds, which is normal behaviour for command-line tools.
+- **Status:** ✅ Fixed in PR #23 and PR #31. Re-verified 28-Oct: decompressing onto the input file is refused, and a corrupted archive leaves the existing output untouched with no `.tmp` file left behind.
 
 ### D-15: REQ-7 implemented inside the decompression PR
 - **Submitted:**
@@ -238,7 +239,35 @@ The Part-2 deliverables say: *"Deviations from the submitted document should be 
 - **Options for the team:**
   1. **Add a CRC32 checksum** of the original data to the header (4 more bytes). The decoder compares it after decoding. That changes `FORMAT.md`, `compress_file()` (Inchara) and `decompress_file()` (Rachit), plus one test. It is about 40 lines in total.
   2. **Accept and explain:** "structural corruption is detected; silent payload corruption is a known limitation of plain Huffman coding without a checksum." In that case, test TC-ERR-02 with truncation or header damage.
-- **Status:** ⏳ Open, needs a team decision by 26-Oct.
+- **Decision (29-Oct-2026):** option 2. With the 30-Oct freeze, the team chose not to change the file format this late.
+  - **What is detected:** structural corruption (truncation, damaged header, wrong frequency table, extra trailing data, missing single-symbol payload) is rejected with a clear error, and no output file is written (D-14, D-17).
+  - **What is not:** a bit flip inside the payload can still decode into wrong data. Plain Huffman coding has no integrity check.
+  - **Future work:** a CRC32 of the original data in the header (about 4 bytes and 40 lines of code).
+- **Status:** ✅ Accepted (known limitation, to be explained at the demo).
+
+### D-17: Two checks lost in the streaming rewrite
+- **Found (28-Oct-2026 review of PR #31):** when decompression switched to streaming, two checks from PR #28 disappeared:
+  1. An archive with **extra bytes after the bitstream** decompressed "successfully" instead of being rejected.
+  2. A **single-symbol** archive (e.g. `AAAAAAAAAA`) with its payload cut off decompressed "successfully", because the payload was never read.
+- **Fix (Rachit, REQ-5/REQ-6, PR #33, 29-Oct-2026):** `decompress_file()` checks for trailing data and reads and validates the single-symbol payload. Two new unit tests cover both cases. All tests pass, and the cross-compiler round trips are still identical.
+- **Status:** ✅ Fixed.
+
+### D-18: Line endings differ between Windows and Mac/Linux checkouts
+- **Context:** TC-NF-03 (portability) exchanges archives between Pavan's Windows laptop and Pranavi's Mac.
+- **Observation:** Pavan's `win.huff` (made from his `README.md`) decompresses to 2128 bytes, while `README.md` on the Mac is 2070 bytes. The difference is exactly the 58 carriage returns (`\r`) that Git for Windows adds to each line of text files when it checks them out (`core.autocrlf`).
+- **Conclusion:** this is **not** a tool defect. Removing the `\r` characters gives a file identical to the Mac copy, and the tool restores every byte it was given. For the portability evidence, the restored file is compared with the **sender's own** copy of the input (see `PORTABILITY.md`). Pavan's `README_win.md` (2128 bytes, 58 CRLF line endings) matched the file restored on the Mac byte for byte.
+- **Status:** ✅ Accepted (explained).
+
+### D-19: #11 completed by the repo owner on freeze day
+- **Submitted:**
+  - SRS Section 7: Rachit owns lossless correctness (100% byte-for-byte match).
+  - Issue #11 is assigned to Rachit.
+- **What happened:** Rachit's main contributions were decompression (PR #25) and its validation fixes (PR #33), which already include round-trip unit tests (`tests/test_codec.cpp`). The separate #11 check script was not started by freeze day (30-Oct-2026), so Pranavi (repo owner) completed it to avoid blocking the release.
+- **What was delivered:** `tests/lossless_check.sh`, which also runs automatically in GitHub Actions on Linux, Windows and macOS:
+  - **12 round trips**, each compared byte for byte with `cmp`: empty, 1 byte, 2 symbols, single symbol, `abracadabra`, Windows CRLF text, 1.3 MB numbers, 230 KB English text, 500 KB random data, all 256 byte values, README and source code.
+  - **5 corruption cases**: truncated, short header, trailing data, not an archive, single-symbol without payload. Each must be rejected and must leave no output file.
+  - **Result (30-Oct, `main` @ `7a826e6`): 17 passed, 0 failed.** This covers STP TC-DEC-03 and TC-ERR-02.
+- **Status:** ✅ Accepted.
 
 ---
 
