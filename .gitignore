@@ -17,3 +17,10 @@ sprint1_restored.txt
 sprint1_test.txt
 sprint2_*.bin
 src/codec.cpp.backup
+
+# Test and coverage working folders
+build-coverage/
+sysval_work/
+lossless_work/
+*.gcda
+*.gcno

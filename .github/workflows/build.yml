@@ -45,3 +45,6 @@ jobs:
 
       - name: Lossless round-trip and corruption check (issue #11)
         run: bash tests/lossless_check.sh
+
+      - name: System validation (Test Case Document v2.0)
+        run: bash tests/system_validation.sh
